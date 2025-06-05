@@ -1,0 +1,5 @@
+# Tạo private key (ECDSA - prime256v1)
+openssl ecparam -name prime256v1 -genkey -noout -out ecdsa_private_key.pem
+
+# Tạo public key từ private key
+openssl ec -in ecdsa_private_key.pem -pubout -out ecdsa_public_key.pem
