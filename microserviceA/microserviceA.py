@@ -36,6 +36,7 @@ def require_role(*allowed_roles):
 
             token = auth_header.split(" ")[1]
             payload = verify_jwt(token)
+            app.logger.info(f"payload: {payload}")
             if "error" in payload:
                 return jsonify(payload), 401
 
@@ -55,6 +56,18 @@ def get_db_connection():
 def verify_jwt(token):
     try:
         decoded = jwt.decode(token, client_public_key, algorithms=["ES256"])
+        username = decoded['sub']
+        jti = decoded['jti']
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT 1 FROM blacklist WHERE username=%s AND jti=%s", (username, jti))
+            check = cursor.fetchone()
+            if not check:
+                return {"error": "Token has changed"}
+        except Exception as e:
+            return {"error" : str(e)}
         return decoded
     except jwt.ExpiredSignatureError:
         return {"error": "Token expired"}
@@ -65,11 +78,11 @@ with open("./sign_data/A_private_key.pem", "rb") as f:
     a_private_key = serialization.load_pem_private_key(f.read(), password=None)
 
 @app.route("/products", methods=["GET"])
-@require_role("admin")
+@require_role("admin", "user")
 def get_products(user_payload):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, product_name, price, quantity_available FROM hanghoa")
+    cursor.execute("SELECT id, product_name, price, quantity_available FROM products")
     products = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -116,7 +129,7 @@ def top_10_order(user_payload):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM banhang ORDER BY id DESC LIMIT 5;")
+    cursor.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 5;")
     data = cursor.fetchall()
 
     app.logger.info(f"Data: {data}")
@@ -161,6 +174,10 @@ def order_product(user_payload):
     username = user_payload.get("sub")
     product_id = data.get("product_id")
     quantity = int(data.get("quantity", 1))
+    #"""use {
+    #      product_id: 1,
+    #      quantity: 5
+    # }"""
 
     if not product_id or quantity < 1:
         return jsonify({"error": "Invalid product_id or quantity"}), 400
@@ -169,7 +186,7 @@ def order_product(user_payload):
     cursor = conn.cursor(dictionary=True)
 
     # Kiểm tra tồn kho
-    cursor.execute("SELECT * FROM hanghoa WHERE id = %s", (product_id,))
+    cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
     product = cursor.fetchone()
     if not product:
         return jsonify({"error": "Product not found"}), 404
@@ -177,9 +194,9 @@ def order_product(user_payload):
         return jsonify({"error": "Not enough quantity"}), 400
 
     # Trừ số lượng, ghi đơn hàng
-    cursor.execute("UPDATE hanghoa SET quantity_available = quantity_available - %s WHERE id = %s", (quantity, product_id))
+    cursor.execute("UPDATE products SET quantity_available = quantity_available - %s WHERE id = %s", (quantity, product_id))
     cursor.execute("""
-        INSERT INTO banhang (username, product_name, price, quantity)
+        INSERT INTO orders (username, product_name, price, quantity)
         VALUES (%s, %s, %s, %s)
     """, (username, product["product_name"], product["price"], quantity))
     conn.commit()
@@ -189,6 +206,107 @@ def order_product(user_payload):
     return jsonify({
         "message": f"Order placed successfully for '{product['product_name']}' (x{quantity})"
     }), 200
+
+@app.route("/update-product", methods=["POST"])
+@require_role("admin")
+def update_product(user_payload):
+    data = request.get_json()
+    #use {product_id : 1, product_name: abcde, price : 808008, quantity: 5}
+    # thường sẽ dùng update tên, giá, và số lượng
+    id = data.get('product_id') # bắt buộc có
+    name = data.get('product_name')
+    price = data.get('price')
+    quantity = data.get('quantity')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if name:
+            cursor.execute("UPDATE products SET product_name=%s WHERE id=%s", (name, id))
+        
+        if price:
+            cursor.execute("UPDATE products SET price=%s WHERE id=%s", (price, id))
+
+        if quantity:
+            cursor.execute("UPDATE products SET quantity_available=%s WHERE id=%s", (quantity, id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        app.log_exception(f"Error: {e}")
+        return jsonify({"error" : str(e)}), 400
+    
+    return jsonify({
+        "message" : "Update data successfully"
+    })
+    
+
+@app.route("/add-product", methods=["POST"])
+@require_role("admin")
+def add_product(user_payload):
+    data = request.get_json()
+    name = data.get("product_name")
+    price = data.get("price")
+    quantity_available = data.get("quantity")
+
+    if not name or not price:
+        return jsonify({
+            "error" : "Missing data"
+        }), 400
+
+    if not quantity_available:
+        quantity_available = 0
+    
+    try:
+        conn = get_db_connection()
+
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO products (product_name, price, quantity_available) VALUES (%s, %s, %s)", (name, price, quantity_available))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        app.log_exception(f"Error: {e}")
+        return jsonify({
+            "error" : str(e)
+        }), 400
+    
+    return jsonify({
+        "message" : "Add product succesfully"
+    })
+
+@app.route("/delete-product", methods=["POST"])
+@require_role("admin")
+def delete_product(user_payload):
+    data = request.get_json()
+    id = data.get('product_id')
+
+    if not id:
+        return jsonify({
+            "error" : "Invalid to delete product"
+        })
+    
+    try:
+        conn = get_db_connection()
+
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM products WHERE id=%s", (id, ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        app.log_exception(f"Error: {e}")
+        return jsonify({
+            "error" : str(e)
+        })
+    
+    return jsonify({
+        "message" : "Delete product succesfully"
+    })
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=6000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))

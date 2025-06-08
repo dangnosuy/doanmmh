@@ -2,14 +2,14 @@ from flask import Flask, request, jsonify
 import hashlib
 import mysql.connector
 from mysql.connector import Error
-import jwt
+import jwt, random
 import datetime
 from functools import wraps
 from cryptography.hazmat.primitives import serialization
 
 app = Flask(__name__)
 
-with open("private_key.pem", "rb") as f:
+with open("./jwt/private_key.pem", "rb") as f:
     private_key_data = f.read()
     private_key = serialization.load_pem_private_key(private_key_data, password=None)
 # Kết nối tới MySQL
@@ -19,13 +19,13 @@ def get_db_connection():
         user='dangnosuy',
         password='dangnosuy',
         database='broken_authentication',
-        ssl_ca='ca.pem',
-        ssl_cert='client-cert.pem',
-        ssl_key='client-key.pem'
+        ssl_ca='./database_key_cert/ca.pem',
+        ssl_cert='./database_key_cert/client-cert.pem',
+        ssl_key='./database_key_cert/client-key.pem'
     )
 
 
-with open("client_public_key.pem", "rb") as f:
+with open("./jwt/client_public_key.pem", "rb") as f:
     client_public_key = serialization.load_pem_public_key(f.read()) # load public_key to authentication JWT
     
 def verify_jwt(token):
@@ -123,10 +123,22 @@ def login():
             return jsonify({"error": "Invalid username or password"}), 401
         
         user_id, role = user
+        jti = str(random.randint(0, 100000))
+        
+        cursor.execute("SELECT * FROM blacklist WHERE username=%s", (username, ))
+        blacklist = cursor.fetchone()
+
+        if not blacklist:
+            cursor.execute("INSERT INTO blacklist (username, jti) VALUES (%s, %s)", (username, jti))
+        else:
+            cursor.execute("UPDATE blacklist SET jti=%s WHERE username=%s", (jti, username))
+
+        conn.commit()
         # Tạo payload cho JWT
         payload = {
             "sub": username,
             "role": role,
+            "jti" : str(jti),
             "iat": datetime.datetime.utcnow(),
             "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
         }
@@ -137,7 +149,7 @@ def login():
             private_key,
             algorithm="ES256"
         )
-
+        
         return jsonify({"access_token": token})
 
     except Exception as e:
@@ -178,4 +190,4 @@ def update_permision(user_payload):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('ecdsa_cert.pem', 'ecdsa_key.pem'))
+    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))
