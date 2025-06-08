@@ -1,0 +1,47 @@
+mysql -u dangnosuy -p broken_authentication --ssl-ca=database_key_cert/ca.pem --ssl-cert=databas/e_key_cert/client-cert.pem --ssl-key=database_key_cert/client-key.pem
+
+mysql> describe users;
++-----------------+--------------+------+-----+-------------------+-------------------+
+| Field           | Type         | Null | Key | Default           | Extra             |
++-----------------+--------------+------+-----+-------------------+-------------------+
+| id              | int          | NO   | PRI | NULL              | auto_increment    |
+| username        | varchar(255) | NO   | UNI | NULL              |                   |
+| hashed_password | varchar(96)  | NO   |     | NULL              |                   |
+| role            | varchar(20)  | NO   |     | user              |                   |
+| created_at      | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-----------------+--------------+------+-----+-------------------+-------------------+
+5 rows in set (0.01 sec)
+
+mysql> describe products;
++--------------------+---------------+------+-----+---------+----------------+
+| Field              | Type          | Null | Key | Default | Extra          |
++--------------------+---------------+------+-----+---------+----------------+
+| id                 | int           | NO   | PRI | NULL    | auto_increment |
+| product_name       | varchar(255)  | NO   | UNI | NULL    |                |
+| price              | decimal(12,2) | NO   |     | NULL    |                |
+| quantity_available | int           | YES  |     | 0       |                |
++--------------------+---------------+------+-----+---------+----------------+
+4 rows in set (0.00 sec)
+
+mysql> describe orders;
++---------------+---------------+------+-----+-------------------+-------------------+
+| Field         | Type          | Null | Key | Default           | Extra             |
++---------------+---------------+------+-----+-------------------+-------------------+
+| id            | int           | NO   | PRI | NULL              | auto_increment    |
+| username      | varchar(100)  | NO   |     | NULL              |                   |
+| product_name  | varchar(255)  | NO   |     | NULL              |                   |
+| price         | decimal(12,2) | NO   |     | NULL              |                   |
+| quantity      | int           | YES  |     | 1                 |                   |
+| purchase_time | timestamp     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++---------------+---------------+------+-----+-------------------+-------------------+
+6 rows in set (0.00 sec)
+
+mysql> describe blacklist;
++----------+--------------+------+-----+---------+----------------+
+| Field    | Type         | Null | Key | Default | Extra          |
++----------+--------------+------+-----+---------+----------------+
+| id       | int          | NO   | PRI | NULL    | auto_increment |
+| username | varchar(255) | NO   |     | NULL    |                |
+| jti      | varchar(100) | YES  |     | NULL    |                |
++----------+--------------+------+-----+---------+----------------+
+3 rows in set (0.00 sec)
