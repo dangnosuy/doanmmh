@@ -14,16 +14,21 @@ with open("./jwt/private_key.pem", "rb") as f:
     private_key = serialization.load_pem_private_key(private_key_data, password=None)
 # Kết nối tới MySQL
 def get_db_connection():
-    return mysql.connector.connect(
-        host='localhost',
-        user='dangnosuy',
-        password='dangnosuy',
-        database='broken_authentication',
-        ssl_ca='./database_key_cert/ca.pem',
-        ssl_cert='./database_key_cert/client-cert.pem',
-        ssl_key='./database_key_cert/client-key.pem'
-    )
-
+    try:
+        conn = mysql.connector.connect(
+            host='mysql-db',
+            port=3306,
+            user='root',
+            password='dangnosuy',
+            database='tmdt',
+            ssl_ca='./database_key_cert/ca.pem',
+            ssl_cert='./database_key_cert/client-cert.pem',
+            ssl_key='./database_key_cert/client-key.pem'
+        )
+        return conn
+    except mysql.connector.Error as err:
+        app.log_exception(f"Error database: {err}")
+        return None
 
 with open("./jwt/client_public_key.pem", "rb") as f:
     client_public_key = serialization.load_pem_public_key(f.read()) # load public_key to authentication JWT

@@ -1,0 +1,41 @@
+CREATE DATABASE IF NOT EXISTS tmdt;
+
+USE tmdt;
+
+CREATE TABLE users (
+    id INT NOT NULL AUTO_INCREMENT,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    hashed_password VARCHAR(96) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);
+CREATE TABLE products (
+    id INT NOT NULL AUTO_INCREMENT,
+    product_name VARCHAR(255) NOT NULL UNIQUE,
+    price DECIMAL(12,2) NOT NULL,
+    quantity_available INT DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE orders (
+    id INT NOT NULL AUTO_INCREMENT,
+    username VARCHAR(255) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    quantity INT DEFAULT 1,
+    purchase_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY (username) REFERENCES users(username)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (product_name) REFERENCES products(product_name)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+
+CREATE TABLE blacklist (
+    id INT NOT NULL AUTO_INCREMENT,
+    username VARCHAR(255) NOT NULL,
+    jti VARCHAR(100),
+    PRIMARY KEY (id)
+);

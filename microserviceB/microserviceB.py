@@ -44,8 +44,9 @@ def require_role(*allowed_roles):
 app = Flask(__name__)
 
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'broken_authentication',
+    'host': 'mysql-db',
+    'port': '3307',
+    'database': 'tmdt',
     'user': 'dangnosuy',
     'password': 'dangnosuy',
     'charset': 'utf8mb4',
@@ -102,7 +103,7 @@ def get_all_customers():
             SUM(price * quantity) as total_amount_spent,
             MIN(purchase_time) as first_purchase,
             MAX(purchase_time) as last_purchase
-        FROM BANHANG 
+        FROM orders 
         GROUP BY username 
         ORDER BY MIN(id)
         """
@@ -173,7 +174,6 @@ def all_customers(user_payload):
         "payload" : payload,
         "signature": signature
     }), 200
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))

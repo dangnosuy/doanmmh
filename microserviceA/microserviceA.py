@@ -17,10 +17,11 @@ with open("./jwt/client_public_key.pem", "rb") as f:
 
 # DB config
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': 'mysql-db',
+    'port': '3306',
     'user': 'dangnosuy',
     'password': 'dangnosuy',
-    'database': 'broken_authentication',
+    'database': 'tmdt',
     'ssl_ca': './database_key_cert/ca.pem',
     'ssl_cert': './database_key_cert/client-cert.pem',
     'ssl_key': './database_key_cert/client-key.pem'
@@ -123,7 +124,7 @@ def get_products(user_payload):
 
 
 
-@app.route("/top-5-order", methods=["GET"])
+@app.route("/top-5-orders", methods=["GET"])
 @require_role("admin")
 def top_10_order(user_payload):
     conn = get_db_connection()
@@ -135,7 +136,7 @@ def top_10_order(user_payload):
     app.logger.info(f"Data: {data}")
 
     if not data:
-        return jsonify({"error": "No products found"}), 404
+        return jsonify({"error": "No orders found"}), 404
 
     # Deep copy để không ảnh hưởng dữ liệu gốc
     payload_data = copy.deepcopy(data)
@@ -213,22 +214,26 @@ def update_product(user_payload):
     data = request.get_json()
     #use {product_id : 1, product_name: abcde, price : 808008, quantity: 5}
     # thường sẽ dùng update tên, giá, và số lượng
-    id = data.get('product_id') # bắt buộc có
+    product_id = data.get('product_id') # bắt buộc có
     name = data.get('product_name')
     price = data.get('price')
     quantity = data.get('quantity')
 
+    if not id:
+        return jsonify({
+            "error" : "Invalid ID product"
+        }), 400
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         if name:
-            cursor.execute("UPDATE products SET product_name=%s WHERE id=%s", (name, id))
+            cursor.execute("UPDATE products SET product_name=%s WHERE id=%s", (name, product_id))
         
         if price:
-            cursor.execute("UPDATE products SET price=%s WHERE id=%s", (price, id))
+            cursor.execute("UPDATE products SET price=%s WHERE id=%s", (price, product_id))
 
         if quantity:
-            cursor.execute("UPDATE products SET quantity_available=%s WHERE id=%s", (quantity, id))
+            cursor.execute("UPDATE products SET quantity_available=%s WHERE id=%s", (quantity, product_id))
 
         conn.commit()
         cursor.close()
