@@ -1,13 +1,21 @@
 from flask import Flask, request, jsonify
-import hashlib
+import hashlib, re
 import mysql.connector
 from mysql.connector import Error
 import jwt, random
 import datetime
 from functools import wraps
 from cryptography.hazmat.primitives import serialization
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[]
+)
 
 with open("./jwt/private_key.pem", "rb") as f:
     private_key_data = f.read()
@@ -75,6 +83,11 @@ def register():
     password = data.get("password")
     role = 'user' 
 
+    if len(username) < 8:
+        return jsonify({"error" : "Length of username least 8 character!"}), 400
+    if not is_strong_password(password):
+        return jsonify({"error": "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character"}), 400
+
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
@@ -106,7 +119,29 @@ def register():
             cursor.close()
             conn.close()
 
+def is_strong_password(password):
+    """
+    Password mạnh nếu:
+    - Ít nhất 8 ký tự
+    - Có ít nhất một chữ hoa
+    - Có ít nhất một chữ thường
+    - Có ít nhất một số
+    - Có ít nhất một ký tự đặc biệt
+    """
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):  # Chữ hoa
+        return False
+    if not re.search(r"[a-z]", password):  # Chữ thường
+        return False
+    if not re.search(r"[0-9]", password):  # Số
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Ký tự đặc biệt
+        return False
+    return True
+
 @app.route("/login", methods=["POST"])
+@limiter.limit("5 per minutes")
 def login():
     data = request.get_json()
     username = data.get("username")
