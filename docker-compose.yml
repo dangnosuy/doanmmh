@@ -1,72 +1,71 @@
-version: '3.8'
+version: "3.8"
 
 services:
+    mysql-db:
+        build: ./database
+        container_name: mysql-db
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: dangnosuy
+            MYSQL_DATABASE: tmdt
+            MYSQL_USER: dangnosuy
+            MYSQL_PASSWORD: dangnosuy
+        ports:
+            - "3307:3306"
+        volumes:
+            - db_data:/var/lib/mysql
+            - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  mysql-db:
-    build: ./database
-    container_name: mysql-db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: dangnosuy
-      MYSQL_DATABASE: tmdt
-      MYSQL_USER: dangnosuy
-      MYSQL_PASSWORD: dangnosuy
-    ports:
-      - "3307:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    auth-service:
+        build: ./authentication
+        container_name: auth-service
+        depends_on:
+            - mysql-db
+        environment:
+            DB_HOST: mysql-db
+            DB_PORT: 3306
+            DB_USER: dangnosuy
+            DB_PASSWORD: dangnosuy
+            DB_NAME: tmdt
+            DB_CA: ./authentication/database_key_cert/ca.pem
+            DB_CERT: ./authentication/database_key_cert/client-cert.pem
+            DB_KEY: ./authentication/database_key_cert/client-key.pem
+        ports:
+            - "5000:5000"
 
-  auth-service:
-    build: ./authentication
-    container_name: auth-service
-    depends_on:
-      - mysql-db
-    environment:
-      DB_HOST: mysql-db
-      DB_PORT: 3306
-      DB_USER: dangnosuy
-      DB_PASSWORD: dangnosuy
-      DB_NAME: tmdt
-      DB_CA: ./authentication/database_key_cert/ca.pem
-      DB_CERT: ./authentication/database_key_cert/client-cert.pem
-      DB_KEY: ./authentication/database_key_cert/client-key.pem
-    ports:
-      - "5000:5000"
+    micro-a-service:
+        build: ./microserviceA
+        container_name: micro-a-service
+        depends_on:
+            - mysql-db
+        environment:
+            DB_HOST: mysql-db
+            DB_PORT: 3306
+            DB_USER: dangnosuy
+            DB_PASSWORD: dangnosuy
+            DB_NAME: tmdt
+            DB_CA: ./microserviceA/database_key_cert/ca.pem
+            DB_CERT: ./microserviceA/database_key_cert/client-cert.pem
+            DB_KEY: ./microserviceA/database_key_cert/client-key.pem
+        ports:
+            - "6000:6000"
 
-  micro-a-service:
-    build: ./microserviceA
-    container_name: micro-a-service
-    depends_on:
-      - mysql-db
-    environment:
-      DB_HOST: mysql-db
-      DB_PORT: 3306
-      DB_USER: dangnosuy
-      DB_PASSWORD: dangnosuy
-      DB_NAME: tmdt
-      DB_CA: ./microserviceA/database_key_cert/ca.pem
-      DB_CERT: ./microserviceA/database_key_cert/client-cert.pem
-      DB_KEY: ./microserviceA/database_key_cert/client-key.pem
-    ports:
-      - "6000:6000"
-
-  micro-b-service:
-    build: ./microserviceB
-    container_name: micro-b-service
-    depends_on:
-      - mysql-db
-    environment:
-      DB_HOST: mysql-db
-      DB_PORT: 3306
-      DB_USER: dangnosuy
-      DB_PASSWORD: dangnosuy
-      DB_NAME: tmdt
-      DB_CA: ./microserviceB/database_key_cert/ca.pem
-      DB_CERT: ./microserviceB/database_key_cert/client-cert.pem
-      DB_KEY: ./microserviceB/database_key_cert/client-key.pem
-    ports:
-      - "7000:7000"
+    micro-b-service:
+        build: ./microserviceB
+        container_name: micro-b-service
+        depends_on:
+            - mysql-db
+        environment:
+            DB_HOST: mysql-db
+            DB_PORT: 3306
+            DB_USER: dangnosuy
+            DB_PASSWORD: dangnosuy
+            DB_NAME: tmdt
+            DB_CA: ./microserviceB/database_key_cert/ca.pem
+            DB_CERT: ./microserviceB/database_key_cert/client-cert.pem
+            DB_KEY: ./microserviceB/database_key_cert/client-key.pem
+        ports:
+            - "7000:7000"
 
 volumes:
-  db_data:
+    db_data:

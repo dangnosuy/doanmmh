@@ -122,8 +122,6 @@ def get_products(user_payload):
         "payload": payload
     }), 200
 
-
-
 @app.route("/top-5-orders", methods=["GET"])
 @require_role("admin")
 def top_10_order(user_payload):
@@ -246,7 +244,6 @@ def update_product(user_payload):
         "message" : "Update data successfully"
     })
     
-
 @app.route("/add-product", methods=["POST"])
 @require_role("admin")
 def add_product(user_payload):

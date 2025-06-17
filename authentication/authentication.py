@@ -20,7 +20,9 @@ limiter = Limiter(
 with open("./jwt/private_key.pem", "rb") as f:
     private_key_data = f.read()
     private_key = serialization.load_pem_private_key(private_key_data, password=None)
-# Kết nối tới MySQL
+with open("./jwt/client_public_key.pem", "rb") as f:
+    client_public_key = serialization.load_pem_public_key(f.read()) # load public_key to authentication JWT
+    
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
@@ -38,9 +40,6 @@ def get_db_connection():
         app.log_exception(f"Error database: {err}")
         return None
 
-with open("./jwt/client_public_key.pem", "rb") as f:
-    client_public_key = serialization.load_pem_public_key(f.read()) # load public_key to authentication JWT
-    
 def verify_jwt(token):
     try:
         decoded = jwt.decode(token, client_public_key, algorithms=["ES256"])
@@ -72,11 +71,32 @@ def require_role(*allowed_roles):
         return wrapper
     return decorator
 
-# Hàm hash mật khẩu SHA-384
 def hash_password(password):
     return hashlib.sha384(password.encode()).hexdigest()
 
+def is_strong_password(password):
+    """
+    Password mạnh nếu:
+    - Ít nhất 8 ký tự
+    - Có ít nhất một chữ hoa
+    - Có ít nhất một chữ thường
+    - Có ít nhất một số
+    - Có ít nhất một ký tự đặc biệt
+    """
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):  # Chữ hoa
+        return False
+    if not re.search(r"[a-z]", password):  # Chữ thường
+        return False
+    if not re.search(r"[0-9]", password):  # Số
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Ký tự đặc biệt
+        return False
+    return True
+
 @app.route("/register", methods=["POST"])
+@limiter.limit("5 per minutes")
 def register():
     data = request.get_json()
     username = data.get("username")
@@ -118,27 +138,6 @@ def register():
         if conn.is_connected():
             cursor.close()
             conn.close()
-
-def is_strong_password(password):
-    """
-    Password mạnh nếu:
-    - Ít nhất 8 ký tự
-    - Có ít nhất một chữ hoa
-    - Có ít nhất một chữ thường
-    - Có ít nhất một số
-    - Có ít nhất một ký tự đặc biệt
-    """
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):  # Chữ hoa
-        return False
-    if not re.search(r"[a-z]", password):  # Chữ thường
-        return False
-    if not re.search(r"[0-9]", password):  # Số
-        return False
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Ký tự đặc biệt
-        return False
-    return True
 
 @app.route("/login", methods=["POST"])
 @limiter.limit("5 per minutes")

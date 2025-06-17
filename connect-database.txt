@@ -15,7 +15,6 @@ CREATE TABLE products (
     quantity_available INT DEFAULT 0,
     PRIMARY KEY (id)
 );
-
 CREATE TABLE orders (
     id INT NOT NULL AUTO_INCREMENT,
     username VARCHAR(255) NOT NULL,
@@ -29,8 +28,6 @@ CREATE TABLE orders (
     FOREIGN KEY (product_name) REFERENCES products(product_name)
         ON UPDATE CASCADE ON DELETE CASCADE
 );
-
-
 CREATE TABLE blacklist (
     id INT NOT NULL AUTO_INCREMENT,
     username VARCHAR(255) NOT NULL,
