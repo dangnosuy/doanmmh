@@ -39,3 +39,5 @@ CREATE TABLE blacklist (
     jti VARCHAR(100),
     PRIMARY KEY (id)
 );
+
+--INSERT INTO users(username, hashed_password, role) VALUES ("dangnosuy", "ac1e1272d0454ef606e8d58ad59a0456dc0878fd41f697d6be7cd8b9e66ef55c5147b6aa3912fbe0487a2d1e1c7c873a", "admin");

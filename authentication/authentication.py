@@ -3,6 +3,7 @@ import hashlib, re
 import mysql.connector
 from mysql.connector import Error
 import jwt, random
+from jwt import ExpiredSignatureError, InvalidTokenError
 import datetime
 from functools import wraps
 from cryptography.hazmat.primitives import serialization
@@ -41,6 +42,9 @@ def get_db_connection():
 with open("./jwt/client_public_key.pem", "rb") as f:
     client_public_key = serialization.load_pem_public_key(f.read()) # load public_key to authentication JWT
     
+with open("./apisix-key/public_key.pem", "rb") as f:
+    apisix_public_key = serialization.load_pem_public_key(f.read())
+
 def verify_jwt(token):
     try:
         decoded = jwt.decode(token, client_public_key, algorithms=["ES256"])
@@ -49,6 +53,49 @@ def verify_jwt(token):
         return {"error": "Token expired"}
     except jwt.InvalidTokenError:
         return {"error": "Invalid token"}
+    
+# Key này phải giống với `key` trong plugin APISIX của bạn
+  # ⚠️ Thay thế bằng key thực tế
+
+def verify_apisix_jwt(token):
+    apisix_secret_key = "my-secret-hmac-key"
+    try:
+        decoded = jwt.decode(
+            token,
+            apisix_secret_key,
+            algorithms=["HS256"],
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+                "verify_nbf": False,
+                "verify_iss": False,
+                "verify_aud": False
+            }
+            # Không cần `issuer` và `audience` vì plugin không có các trường đó
+        )
+        return decoded
+    except jwt.ExpiredSignatureError:
+        return {"error": "Token expired"}
+    except jwt.InvalidTokenError as e:
+        return {"error": f"Invalid token: {str(e)}"}
+
+def require_apisix_jwt():
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = request.headers.get("X-Gateway-JWT")
+            print(f"Token: {token}")
+            if not token:
+                return jsonify({"error": "Missing X-Gateway-JWT header"}), 401
+
+            payload = verify_apisix_jwt(token)
+            if "error" in payload:
+                return jsonify(payload), 401
+
+            return f(*args, **kwargs, apisix_payload=payload)
+        return wrapper
+    return decorator
     
 def require_role(*allowed_roles):
     def decorator(f):
@@ -72,12 +119,15 @@ def require_role(*allowed_roles):
         return wrapper
     return decorator
 
+
+
 # Hàm hash mật khẩu SHA-384
 def hash_password(password):
     return hashlib.sha384(password.encode()).hexdigest()
 
 @app.route("/register", methods=["POST"])
-def register():
+@require_apisix_jwt()
+def register(apisix_payload):
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
@@ -92,7 +142,8 @@ def register():
         return jsonify({"error": "Username and password are required"}), 400
 
     hashed_pw = hash_password(password)
-
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -141,8 +192,9 @@ def is_strong_password(password):
     return True
 
 @app.route("/login", methods=["POST"])
+@require_apisix_jwt()
 @limiter.limit("5 per minutes")
-def login():
+def login(apisix_payload):
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
@@ -151,6 +203,9 @@ def login():
         return jsonify({"error": "Username and password required"}), 400
 
     hashed_pw = hash_password(password)
+
+    conn = None
+    cursor = None
 
     try:
         conn = get_db_connection()
@@ -203,8 +258,9 @@ def login():
             
 
 @app.route('/update-permision', methods=['POST'])
+@require_apisix_jwt()
 @require_role("admin")
-def update_permision(user_payload):
+def update_permision(user_payload, apisix_payload):
     data = request.get_json()
     username = data.get('username')
     role_change = data.get('role')
@@ -230,4 +286,4 @@ def update_permision(user_payload):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))
+    app.run(host='0.0.0.0', port=5000, debug=True)

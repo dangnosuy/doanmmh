@@ -26,6 +26,45 @@ DB_CONFIG = {
     'ssl_cert': './database_key_cert/client-cert.pem',
     'ssl_key': './database_key_cert/client-key.pem'
 }
+def verify_apisix_jwt(token):
+    apisix_secret_key = "my-secret-hmac-key"
+    try:
+        decoded = jwt.decode(
+            token,
+            apisix_secret_key,
+            algorithms=["HS256"],
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+                "verify_nbf": False,
+                "verify_iss": False,
+                "verify_aud": False
+            }
+            # Không cần `issuer` và `audience` vì plugin không có các trường đó
+        )
+        return decoded
+    except jwt.ExpiredSignatureError:
+        return {"error": "Token expired"}
+    except jwt.InvalidTokenError as e:
+        return {"error": f"Invalid token: {str(e)}"}
+
+def require_apisix_jwt():
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = request.headers.get("X-Gateway-JWT")
+            print(f"Token: {token}")
+            if not token:
+                return jsonify({"error": "Missing X-Gateway-JWT header"}), 401
+
+            payload = verify_apisix_jwt(token)
+            if "error" in payload:
+                return jsonify(payload), 401
+
+            return f(*args, **kwargs, apisix_payload=payload)
+        return wrapper
+    return decorator
 
 def require_role(*allowed_roles):
     def decorator(f):
@@ -80,7 +119,8 @@ with open("./sign_data/A_private_key.pem", "rb") as f:
 
 @app.route("/products", methods=["GET"])
 @require_role("admin", "user")
-def get_products(user_payload):
+@require_apisix_jwt()
+def get_products(user_payload, apisix_payload):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT id, product_name, price, quantity_available FROM products")
@@ -126,7 +166,8 @@ def get_products(user_payload):
 
 @app.route("/top-5-orders", methods=["GET"])
 @require_role("admin")
-def top_10_order(user_payload):
+@require_apisix_jwt()
+def top_10_order(user_payload, apisix_payload):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -170,7 +211,8 @@ def top_10_order(user_payload):
 
 @app.route("/order", methods=["POST"])
 @require_role("admin", "user")
-def order_product(user_payload):
+@require_apisix_jwt()
+def order_product(user_payload,apisix_payload):
     data = request.get_json()
     username = user_payload.get("sub")
     product_id = data.get("product_id")
@@ -210,7 +252,8 @@ def order_product(user_payload):
 
 @app.route("/update-product", methods=["POST"])
 @require_role("admin")
-def update_product(user_payload):
+@require_apisix_jwt()
+def update_product(user_payload, apisix_payload):
     data = request.get_json()
     #use {product_id : 1, product_name: abcde, price : 808008, quantity: 5}
     # thường sẽ dùng update tên, giá, và số lượng
@@ -249,7 +292,8 @@ def update_product(user_payload):
 
 @app.route("/add-product", methods=["POST"])
 @require_role("admin")
-def add_product(user_payload):
+@require_apisix_jwt()
+def add_product(user_payload, apisix_payload):
     data = request.get_json()
     name = data.get("product_name")
     price = data.get("price")
@@ -284,7 +328,8 @@ def add_product(user_payload):
 
 @app.route("/delete-product", methods=["POST"])
 @require_role("admin")
-def delete_product(user_payload):
+@require_apisix_jwt()
+def delete_product(user_payload, apisix_payload):
     data = request.get_json()
     id = data.get('product_id')
 
@@ -314,4 +359,4 @@ def delete_product(user_payload):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=6000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))
+    app.run(host="0.0.0.0", port=6000, debug=True)
