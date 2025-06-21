@@ -9,6 +9,8 @@ from functools import wraps
 from cryptography.hazmat.primitives import serialization
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from password_strength import PasswordPolicy
+import uuid
 
 app = Flask(__name__)
 
@@ -60,7 +62,8 @@ def verify_jwt(token):
   # ⚠️ Thay thế bằng key thực tế
 
 def verify_apisix_jwt(token):
-    apisix_secret_key = "my-secret-hmac-key"
+    apisix_secret_key = "8649b8d14cf53f327521e52012862e927ef74c63ff9baec5a85ff9afb4f0d724"
+    # Longer...
     try:
         decoded = jwt.decode(
             token,
@@ -136,17 +139,26 @@ def is_strong_password(password):
     - Có ít nhất một số
     - Có ít nhất một ký tự đặc biệt
     """
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):  # Chữ hoa
-        return False
-    if not re.search(r"[a-z]", password):  # Chữ thường
-        return False
-    if not re.search(r"[0-9]", password):  # Số
-        return False
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Ký tự đặc biệt
-        return False
-    return True
+    policy = PasswordPolicy.from_names(
+        length = 8,
+        uppercase = 1,
+        numbers = 1,
+        special = 1,
+        nonletters = 1
+    )
+    return len(policy.test(password)) == 0
+
+    # if len(password) < 8:
+    #     return False
+    # if not re.search(r"[A-Z]", password):  # Chữ hoa
+    #     return False
+    # if not re.search(r"[a-z]", password):  # Chữ thường
+    #     return False
+    # if not re.search(r"[0-9]", password):  # Số
+    #     return False
+    # if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Ký tự đặc biệt
+    #     return False
+    # return True
 
 @app.route("/register", methods=["POST"])
 @require_apisix_jwt()
@@ -220,8 +232,9 @@ def login(apisix_payload):
             return jsonify({"error": "Invalid username or password"}), 401
         
         user_id, role = user
-        jti = str(random.randint(0, 100000))
-        
+        # jti = str(random.randint(0, 100000))
+        # Ever heard of randcrack?
+        jti = uuid.uuid4().hex
         cursor.execute("SELECT * FROM blacklist WHERE username=%s", (username, ))
         blacklist = cursor.fetchone()
 

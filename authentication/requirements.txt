@@ -3,3 +3,5 @@ mysql-connector-python
 PyJWT
 cryptography
 Flask-Limiter
+password-strength
+uuid

@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 def verify_apisix_jwt(token):
-    apisix_secret_key = "my-secret-hmac-key"
+    apisix_secret_key = "8649b8d14cf53f327521e52012862e927ef74c63ff9baec5a85ff9afb4f0d724"
     try:
         decoded = jwt.decode(
             token,
