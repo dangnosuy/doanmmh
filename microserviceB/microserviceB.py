@@ -19,6 +19,46 @@ import copy
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+def verify_apisix_jwt(token):
+    apisix_secret_key = "my-secret-hmac-key"
+    try:
+        decoded = jwt.decode(
+            token,
+            apisix_secret_key,
+            algorithms=["HS256"],
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+                "verify_nbf": False,
+                "verify_iss": False,
+                "verify_aud": False
+            }
+            # Không cần `issuer` và `audience` vì plugin không có các trường đó
+        )
+        return decoded
+    except jwt.ExpiredSignatureError:
+        return {"error": "Token expired"}
+    except jwt.InvalidTokenError as e:
+        return {"error": f"Invalid token: {str(e)}"}
+
+def require_apisix_jwt():
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = request.headers.get("X-Gateway-JWT")
+            print(f"Token: {token}")
+            if not token:
+                return jsonify({"error": "Missing X-Gateway-JWT header"}), 401
+
+            payload = verify_apisix_jwt(token)
+            if "error" in payload:
+                return jsonify(payload), 401
+
+            return f(*args, **kwargs, apisix_payload=payload)
+        return wrapper
+    return decorator
+
 def require_role(*allowed_roles):
     def decorator(f):
         @wraps(f)
@@ -176,4 +216,4 @@ def all_customers(user_payload):
     }), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7000, debug=True, ssl_context=('./ssl_cert/ecdsa_cert.pem', './ssl_cert/ecdsa_key.pem'))
+    app.run(host="0.0.0.0", port=7000, debug=True)
