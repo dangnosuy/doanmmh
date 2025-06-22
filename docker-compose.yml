@@ -14,7 +14,7 @@ services:
             - "3307:3306"
         volumes:
             - db_data:/var/lib/mysql
-            # - mysql_keyring:/usr/local/mysql/mysql-keyring
+            - mysql_keyring:/var/lib/mysql-keyring
             - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
             # - ./database/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh
 
@@ -72,4 +72,4 @@ services:
 volumes:
     db_data:
 
-    # mysql_keyring:
+    mysql_keyring:

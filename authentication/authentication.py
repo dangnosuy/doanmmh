@@ -358,10 +358,14 @@ def verify_otp(apisix_payload):
             cursor.close()
             conn.close()
 
-@app.route("/change-password", methods=["POST"])
-@require_apisix_jwt()
-def change_password(apisix_payload):
-    username = request.get_json().get("username")
+@app.route("/forgot-password", methods=["POST"])
+@limiter.limit("5 per minute")
+def forgot_password():
+    data = request.get_json()
+    username = data.get("username")
+
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
 
     conn = None
     cursor = None
@@ -369,16 +373,94 @@ def change_password(apisix_payload):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT email FROM users WHERE usesrname=%s", (username, ))
+        cursor.execute("SELECT email FROM users WHERE username=%s", (username,))
         user = cursor.fetchone()
         if not user:
+            return jsonify({"error": "Username not found"}), 404
+
+        email = user[0]
+
+        otp = str(random.randint(100000, 999999))
+        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+
+        # Lưu hoặc cập nhật OTP
+        cursor.execute("""
+            INSERT INTO otp_codes (username, otp_code, expires_at)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE otp_code=%s, expires_at=%s
+        """, (username, otp, expires_at, otp, expires_at))
+        conn.commit()
+
+        send_email(email, "Password Reset OTP", f"Your OTP is: {otp}")
+        return jsonify({"message": "OTP sent to your email"})
+
+    except Exception as e:
+        print("Forgot password error:", e)
+        return jsonify({"error": "Internal server error"}), 500
+
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+@app.route("/verify-otp-and-reset", methods=["POST"])
+@limiter.limit("5 per minute")
+def verify_otp_and_reset():
+    data = request.get_json()
+    username = data.get("username")
+    otp = data.get("otp")
+    new_password = data.get("new_password")
+
+    if not all([username, otp, new_password]):
+        return jsonify({"error": "Missing fields"}), 400
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT otp_code, expires_at FROM otp_codes
+            WHERE username=%s
+        """, (username,))
+        otp_data = cursor.fetchone()
+
+        if not otp_data:
+            return jsonify({"error": "OTP not found"}), 404
+
+        db_otp, expires_at = otp_data
+        if datetime.datetime.utcnow() > expires_at:
+            return jsonify({"error": "OTP expired"}), 400
+        if otp != db_otp:
+            return jsonify({"error": "Invalid OTP"}), 400
+
+        if is_strong_password(new_password):
             return jsonify({
-                "error" : "Cannot found username!"
-            }), 401
-        
-    except:
-        pass
-        
+                "error": "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character"
+            }), 400
+            
+        hashed_pw = hash_password(new_password)
+        cursor.execute("""
+            UPDATE users SET hashed_password=%s WHERE username=%s
+        """, (hashed_pw, username))
+        conn.commit()
+
+        # Xóa OTP sau khi dùng
+        cursor.execute("DELETE FROM otp_codes WHERE username=%s", (username,))
+        conn.commit()
+
+        return jsonify({"message": "Password reset successful"})
+
+    except Exception as e:
+        print("Verify OTP error:", e)
+        return jsonify({"error": "Internal server error"}), 500
+
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
 
 @app.route("/logout", methods=["POST"])
 @require_apisix_jwt()  # Middleware sẽ parse JWT và truyền `apisix_payload`
