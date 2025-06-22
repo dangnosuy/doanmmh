@@ -2,11 +2,11 @@ from flask import Flask, request, jsonify
 import mysql.connector
 import jwt, json
 from cryptography.hazmat.primitives import serialization
-import requests, hashlib
+import hashlib
 from functools import wraps
 from decimal import Decimal  # Thêm dòng này để kiểm tra kiểu Decimal
 import copy
-from base64 import b64encode, urlsafe_b64encode
+from base64 import urlsafe_b64encode
 from datetime import datetime
 
 app = Flask(__name__)

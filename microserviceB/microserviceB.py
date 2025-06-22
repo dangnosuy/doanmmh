@@ -4,12 +4,10 @@ import jwt
 import mysql.connector
 from mysql.connector import Error
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes
-from base64 import b64encode, urlsafe_b64encode
+from base64 import urlsafe_b64encode
 from functools import wraps
 from flask import request, jsonify
-import os, json, hashlib
+import json, hashlib
 from datetime import datetime
 import logging
 from decimal import Decimal  # Thêm dòng này để kiểm tra kiểu Decimal

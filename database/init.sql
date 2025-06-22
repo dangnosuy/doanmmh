@@ -1,5 +1,4 @@
 CREATE DATABASE IF NOT EXISTS tmdt;
--- INSTALL PLUGIN keyring_file SONAME 'keyring_file.so';
 USE tmdt;
 
 CREATE TABLE users (

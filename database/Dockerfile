@@ -7,9 +7,6 @@ COPY server-key.pem /etc/mysql/ssl/server-key.pem
 
 # Chmod cho các file private key
 RUN chown mysql:mysql /etc/mysql/ssl/server-key.pem && chmod 600 /etc/mysql/ssl/server-key.pem
-# RUN mkdir -p /usr/local/mysql/mysql-keyring && \
-#     chmod 750 /usr/local/mysql/mysql-keyring && \
-#     chown mysql:mysql /usr/local/mysql/mysql-keyring
 
 
 

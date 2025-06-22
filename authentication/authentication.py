@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import hashlib, re
 import mysql.connector
 from mysql.connector import Error
-import jwt, random
+import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 import datetime
 from functools import wraps
@@ -16,6 +16,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from Crypto.Cipher import AES
 import base64
+import secrets
 
 app = Flask(__name__)
 
@@ -25,8 +26,8 @@ limiter = Limiter(
     default_limits=[]
 )
 
+# Additional encryption/decryption
 secret_key: bytes = base64.b64decode(b'ctoiHG10i+VBBXUjC4XT49VW+smTUTGwLHFcp/jC9ag=')
-
 
 def encrypt(data: bytes) -> bytes:
     aes_key = hashlib.sha3_256(secret_key).digest()
@@ -268,7 +269,7 @@ def login(apisix_payload):
         user_email = user[0]
 
         # Tạo mã OTP 6 chữ số
-        otp = str(random.randint(100000, 999999))
+        otp = str(secrets.randbelow(1000000)).zfill(6)
         expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
 
         # Lưu OTP vào DB (nếu tồn tại thì cập nhật)
@@ -380,7 +381,7 @@ def forgot_password():
 
         email = user[0]
 
-        otp = str(random.randint(100000, 999999))
+        otp = str(secrets.randbelow(1000000)).zfill(6)
         expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
 
         # Lưu hoặc cập nhật OTP
