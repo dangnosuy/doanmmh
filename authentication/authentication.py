@@ -14,6 +14,8 @@ import uuid
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from Crypto.Cipher import AES
+import base64
 
 app = Flask(__name__)
 
@@ -22,6 +24,21 @@ limiter = Limiter(
     app=app,
     default_limits=[]
 )
+
+secret_key: bytes = base64.b64decode(b'ctoiHG10i+VBBXUjC4XT49VW+smTUTGwLHFcp/jC9ag=')
+
+
+def encrypt(data: bytes) -> bytes:
+    aes_key = hashlib.sha3_256(secret_key).digest()
+    encryptor = AES.new(key=aes_key, mode=AES.MODE_GCM)
+    cipher_text = encryptor.encrypt(data)
+    return cipher_text
+
+def decrypt(data: bytes) -> bytes:
+    aes_key = hashlib.sha3_256(secret_key).digest()
+    encryptor = AES.new(key=aes_key, mode=AES.MODE_GCM)
+    cipher_text = encryptor.decrypt(data)
+    return cipher_text
 
 with open("./jwt/private_key.pem", "rb") as f:
     private_key_data = f.read()
@@ -358,6 +375,9 @@ def change_password(apisix_payload):
             return jsonify({
                 "error" : "Cannot found username!"
             }), 401
+        
+    except:
+        pass
         
 
 @app.route("/logout", methods=["POST"])
