@@ -5,6 +5,7 @@ USE tmdt;
 CREATE TABLE users (
     id INT NOT NULL AUTO_INCREMENT,
     username VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
     hashed_password VARCHAR(96) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -38,6 +39,12 @@ CREATE TABLE blacklist (
     username VARCHAR(255) NOT NULL,
     jti VARCHAR(100),
     PRIMARY KEY (id)
+);
+
+CREATE TABLE otp_codes (
+    username VARCHAR(255) PRIMARY KEY,
+    otp_code VARCHAR(10),
+    expires_at DATETIME
 );
 
 --INSERT INTO users(username, hashed_password, role) VALUES ("dangnosuy", "ac1e1272d0454ef606e8d58ad59a0456dc0878fd41f697d6be7cd8b9e66ef55c5147b6aa3912fbe0487a2d1e1c7c873a", "admin");
